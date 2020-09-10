@@ -24,11 +24,14 @@ import com.twitter.finagle.http.{ Request, Response }
 import com.twitter.finagle.{ Http, ListeningServer, Service }
 import com.twitter.util.Future
 import io.finch.ToAsync
+import org.flywaydb.core.Flyway
 import zio._
 import zio.interop.catz._
 
 object Main extends CatsApp {
-
+  private val dbUrl      = "jdbc:postgresql://localhost:5432/todo_db"
+  private val dbUser     = "postgres"
+  private val dbPassword = "postgres"
   private def closeLater(listeningServer: ListeningServer): ZIO[Any, Nothing, Any] =
     Task
       .effectSuspend(implicitly[ToAsync[Future, Task]].apply(listeningServer.close()))
@@ -42,10 +45,13 @@ object Main extends CatsApp {
 
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     for {
-      exitCode <- serve(":8000", TodoEndpoints(new TodoRepository)(implicitly[Runtime[Any]]))
-        .use(_ => ZIO.never)
-        .catchAll(t => UIO("Failed to start the server", t))
-        .map(_ => zio.ExitCode.success)
+      exitCode <- {
+        Flyway.configure().dataSource(dbUrl, dbUser, dbPassword).load().migrate()
+        serve(":8000", TodoEndpoints(new TodoRepository)(implicitly[Runtime[Any]]))
+          .use(_ => ZIO.never)
+          .catchAll(t => UIO("Failed to start the server", t))
+          .map(_ => zio.ExitCode.success)
+      }
 
     } yield exitCode
 }

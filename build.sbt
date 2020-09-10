@@ -13,6 +13,7 @@ lazy val `finch-zio-slick` =
           library.dupinCore,
           library.finchCore,
           library.finchCirce,
+          library.flyway,
           library.postgresql,
           library.slick,
           library.slickHikari,
@@ -33,6 +34,7 @@ lazy val library =
       val circe          = "0.13.0"
       val dupin          = "0.1.1"
       val finch          = "0.32.1"
+      val flyway         = "6.5.2"
       val postgresql     = "42.2.16.jre7"
       val slick          = "3.3.3"
       val zio            = "1.0.1"
@@ -44,6 +46,7 @@ lazy val library =
     val dupinCore      = "com.github.yakivy"  %% "dupin-core"       % Version.dupin
     val finchCore      = "com.github.finagle" %% "finchx-core"      % Version.finch
     val finchCirce     = "com.github.finagle" %% "finchx-circe"     % Version.finch
+    val flyway         = "org.flywaydb"        % "flyway-core"      % Version.flyway
     val postgresql     = "org.postgresql"      % "postgresql"       % Version.postgresql
     val slick          = "com.typesafe.slick" %% "slick"            % Version.slick
     val slickHikari    = "com.typesafe.slick" %% "slick-hikaricp"   % Version.slick

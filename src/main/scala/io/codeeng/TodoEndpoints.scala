@@ -21,39 +21,72 @@
 
 package io.codeeng
 
-import com.twitter.finagle.Service
-import com.twitter.finagle.http.{ Request, Response, Status }
+import com.twitter.finagle.http.Status
 import io.finch._
-import zio.Task
 import zio._
 import zio.interop.catz._
-import io.finch.circe._
 import io.circe.generic.auto._
-import shapeless.{ :+:, CNil }
+import io.finch.circe._
+import io.codeeng.Configuration.http.externalUrl
+import shapeless.{:+:, CNil}
 
-class TodoEndpoints[R](todoRepository: TodoRepository)(implicit runtime: Runtime[R])
-    extends EndpointModule[Task] {
-  private def getTodo: Endpoint[Task, Todo] =
-    get("api" :: path[Int]) { id: Int =>
+class TodoEndpoints(todoRepository: TodoRepository)(implicit
+    runtime: Runtime[ZEnv]
+) extends EndpointModule[Task] {
+  import TodoEndpoints._
+  private val todosRoot = path("api") :: "todos"
+
+  private def getOne: Endpoint[Task, Todo] =
+    get(todosRoot :: path[Int]) { id: Int =>
       todoRepository.findOne(id).map {
         case Some(todo) => Ok(todo)
         case None       => Output.empty(Status.NotFound)
       }
     }
 
-  private def getAllTodos: Endpoint[Task, Seq[Todo]] =
-    get("api") {
+  private def getAll: Endpoint[Task, Seq[Todo]] =
+    get(todosRoot) {
       todoRepository.findAll().map { todos =>
         Ok(todos)
       }
     }
 
-  def endpoints: Endpoint[Task, Todo :+: Seq[Todo] :+: CNil] = getTodo :+: getAllTodos
+  private def createTodo: Endpoint[Task, Unit] =
+    post(todosRoot :: jsonBody[TodoRequest]) { tr: TodoRequest =>
+      todoRepository.create(Todo(None, tr.title, tr.description)).map { id =>
+        Output
+          .unit(Status.Created)
+          .withHeader("Location" -> s"$externalUrl/api/todos/$id")
+      }
+    }
+
+  private def updateTodo: Endpoint[Task, Unit] =
+    put(todosRoot :: path[Int] :: jsonBody[TodoRequest]) { (id: Int, tr: TodoRequest) =>
+      todoRepository.update(Todo(Some(id), tr.title, tr.description)).map { _ =>
+        Output
+          .unit(Status.Ok)
+      }
+    }
+
+  private def deleteTodo: Endpoint[Task, Unit] =
+    delete(todosRoot :: path[Int]) { id: Int =>
+      todoRepository.delete(id).map { _ =>
+        Output
+          .unit(Status.NoContent)
+      }
+    }
+
+  def endpoints: Endpoint[Task, Todo :+: Seq[Todo] :+: Unit :+: Unit :+: Unit :+: CNil] =
+    getOne :+: getAll :+: createTodo :+: updateTodo :+: deleteTodo
 }
 
 object TodoEndpoints {
-  def apply[R](
+  case class TodoRequest(title: String, description: String)
+
+  def apply(
       todoRepository: TodoRepository
-  )(implicit runtime: Runtime[R]): Service[Request, Response] =
-    new TodoEndpoints(todoRepository).endpoints.toService
+  )(implicit
+      runtime: Runtime[ZEnv]
+  ): Endpoint[Task, Todo :+: Seq[Todo] :+: Unit :+: Unit :+: Unit :+: CNil] =
+    new TodoEndpoints(todoRepository).endpoints
 }

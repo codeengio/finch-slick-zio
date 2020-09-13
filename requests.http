@@ -1,0 +1,21 @@
+POST http://localhost:8000/api/todos
+Content-Type: application/json
+
+{
+  "title": "Test",
+  "description": "test"
+}
+
+###
+
+PUT http://localhost:8000/api/todos/1
+Content-Type: application/json
+
+{
+  "title": "Test2",
+  "description": "test2"
+}
+
+###
+
+DELETE http://localhost:8000/api/todos/1

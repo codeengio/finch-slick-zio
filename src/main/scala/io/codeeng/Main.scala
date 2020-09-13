@@ -20,25 +20,28 @@
  */
 
 package io.codeeng
+import java.net.InetSocketAddress
+
 import com.twitter.finagle.http.{ Request, Response }
 import com.twitter.finagle.{ Http, ListeningServer, Service }
 import com.twitter.util.Future
-import io.finch.ToAsync
+import io.finch._
 import org.flywaydb.core.Flyway
+import io.finch.circe._
+import io.circe.generic.auto._
 import zio._
 import zio.interop.catz._
+import Configuration._
 
-object Main extends CatsApp {
-  private val dbUrl      = "jdbc:postgresql://localhost:5432/todo_db"
-  private val dbUser     = "postgres"
-  private val dbPassword = "postgres"
+object Main extends CatsApp with EndpointModule[Task] {
+
   private def closeLater(listeningServer: ListeningServer): ZIO[Any, Nothing, Any] =
     Task
       .effectSuspend(implicitly[ToAsync[Future, Task]].apply(listeningServer.close()))
       .catchAll(t => UIO("Failed to close the server", t))
 
   private def serve(
-      address: String,
+      address: InetSocketAddress,
       service: Service[Request, Response]
   ): ZManaged[Any, Throwable, ListeningServer] =
     Managed.makeEffect(Http.server.serve(address, service))(closeLater)
@@ -46,8 +49,11 @@ object Main extends CatsApp {
   override def run(args: List[String]): URIO[zio.ZEnv, ExitCode] =
     for {
       exitCode <- {
-        Flyway.configure().dataSource(dbUrl, dbUser, dbPassword).load().migrate()
-        serve(":8000", TodoEndpoints(new TodoRepository)(implicitly[Runtime[Any]]))
+        Flyway.configure().dataSource(db.url, db.user, db.password).load().migrate()
+        serve(
+          new InetSocketAddress(http.host, http.port),
+          TodoEndpoints(new TodoRepository).toService
+        )
           .use(_ => ZIO.never)
           .catchAll(t => UIO("Failed to start the server", t))
           .map(_ => zio.ExitCode.success)

@@ -22,9 +22,7 @@
 package io.codeeng
 
 import slick.jdbc.H2Profile.api._
-import scala.concurrent.ExecutionContext
 
 object DB {
-  val db                                            = Database.forConfig("db")
-  implicit val dbExecutionContext: ExecutionContext = db.executor.executionContext
+  val db = Database.forConfig("db")
 }

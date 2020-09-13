@@ -23,7 +23,7 @@ package io.codeeng
 import slick.jdbc.H2Profile.api._
 import io.codeeng.DB._
 import slick.lifted.ProvenShape
-import zio.{ Task, ZIO }
+import zio.Task
 
 object TodoRepository {
   class Todos(tag: Tag) extends Table[Todo](tag, "todos") {
@@ -38,9 +38,13 @@ class TodoRepository {
   import TodoRepository._
   private val todos = TableQuery[Todos]
 
-  def findAll(): Task[Seq[Todo]] =
-    ZIO.fromFuture(implicit ec => db.run(todos.sortBy(_.title).result))
+  def findAll(): Task[Seq[Todo]] = db.run(todos.sortBy(_.title).result)
 
-  def findOne(id: Int): Task[Option[Todo]] =
-    ZIO.fromFuture(implicit ec => db.run(todos.filter(_.id === id).result.headOption))
+  def findOne(id: Int): Task[Option[Todo]] = db.run(todos.filter(_.id === id).result.headOption)
+
+  def create(todo: Todo): Task[Int] = db.run((todos returning todos.map(_.id)) += todo)
+
+  def update(todo: Todo): Task[Int] = db.run(todos.filter(_.id === todo.id).update(todo))
+
+  def delete(id: Int): Task[Int] = db.run(todos.filter(_.id === id).delete)
 }
